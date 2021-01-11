@@ -1,16 +1,19 @@
-# Read in weird tree files
-# EKB; Dec 21, 2020
+# Reading vascular data
+# EKB; January 2021
 
 ### LIBRARIES ###
-library(tidyverse)
-library(janitor)
+
+#install.packages("groundhog")
+library(groundhog)
+groundhog.library(tidyverse, "2021-01-01")
+groundhog.library(janitor, "2021-01-01")
 
 ### NOTES ###
 
 # Right now, this script does the following:
 # 1. Reads in a text file. We lose the metadata located in the file name.
 # 2. Pulls out the first line of the file and saves it as metadata.
-# 3. Removes extra white-space and makes each list the same length (26 here)
+# 3. Removes extra white-space and makes each list the same length 
 # 4. Binds the lists together to be rows in one dataframe, names the first row
 #     into column names, drops empty rows and any rows that repeat the column names.
 # 5. Makes a list that contains both the cleaned dataframe and the metadata
@@ -37,13 +40,13 @@ con <- file('../../../Desktop/HONDO181.txt')
 open(con)
 
 # make a list to put the results into
-results.list <- list()
+results_list <- list()
 
 # start with the first line in the file and cycle through all of them
-current.line <- 1
+current_line <- 1
 while (length(line <- readLines(con, n = 1, warn = FALSE)) > 0) {
-  results.list[current.line] <- line
-  current.line <- current.line + 1
+  results_list[current_line] <- line
+  current_line <- current_line + 1
 } 
 
 # close the connection to the file
@@ -52,45 +55,50 @@ close(con)
 ### TURN INTO DATAFRAME ###
 
 # remove remaining white spaces
-results.list <- lapply(results.list, str_trim, side = "both") %>% 
+results_list <- lapply(results_list, str_trim, side = "both") %>% 
   lapply(., str_squish)
 
 # save first list as metadata to be attached later
 # are all the first rows metadata?
-metadata <- results.list[[1]]
+metadata <- results_list[[1]]
   
 # get the rows after the metadata and unlist them so each value gets read 
 # separately; otherwise, each row is one big long character string
-split_list <- lapply(results.list[3:length(results.list)], 
+split_list <- lapply(results_list[3:length(results_list)], 
                      str_split, 
                      pattern = " ")
-  
+ 
+#### NOTE ####
+# when we code this for running through multiple files, we'll want a loop to run
+# through all the files to find the longest row and set max_length to that value
+ 
 # in order to bind the list together as rows, they need to be the same length.
-# it would probably be better to not hard-code the 26 and allow flexiblity
-# for files that might have different row lengths
 for (i in 1:length(split_list)){
     
-  # for lists that start with "QUAD," remove duplicates (lowercase?)
-  if (split_list[[i]][[1]][1] == 'QUAD'){
+  # get length of row
+  # 31 is assuming only 1 sub-stand in ever surveyed twice
+  # if 31 is not the maximum length, we'll need to edit this code
+  max_length <- 31
+  row_length <- length(split_list[[i]][[1]])
+  
+  # for lists that start with "QUAD," find length of "row" (actually a list)
+  if (row_length > 1){
     
-    dups <- vector()  # make a vector of duplicates
-    
-    # for each string in the list, determine if it has a lowercase letter
-    # if it does, add it to the dups vector
-    for (z in 1:length(split_list[[i]][[1]])) {
-      if (str_detect(split_list[[i]][[1]][[z]], "[a-z]") == TRUE) {
-        dups <- c(dups, z)
-      } 
+    # this code adds NAs to the row to match max_length
+    if (row_length < max_length) {
+      add_NAs <- vector(mode = "character", length = (max_length - row_length)) %>% 
+        na_if("")
+      split_list[[i]][[1]] <- c(split_list[[i]][[1]], add_NAs)
     }
-    
-    # remove duplicates from the list and set appropriate list length  
-    split_list[[i]][[1]] <- split_list[[i]][[1]][-dups]
-    n <- length(split_list[[i]][[1]][-dups])
-    
-  # for lists that are empty, put the appropriate number of NAs in, based on the
+
+      # for lists that are empty, put the appropriate number of NAs in, based on the
   # length of the corrected "QUAD"  list  
-  } else if (split_list[[i]][[1]][1] == "") {
-    split_list[[i]][[1]][1:n] <- NA
+  } else if (row_length <= 1) {
+    split_list[[i]][[1]][1:max_length] <- NA
+    
+  } else {
+    print("ERROR: value greater than 31 possibly detected")
+    # ideally, would want to print which file once this is written for multiple
   }
     
 }
@@ -100,7 +108,7 @@ data <- data.frame(matrix(unlist(split_list),
                           nrow = length(split_list), 
                           byrow = T)) %>% 
   # remove the empty rows
-  drop_na() %>% 
+  janitor::remove_empty("rows") %>% 
   # make the first row ("QUAD") into the column names
   janitor::row_to_names(., row_number = 1) %>% 
   # remove any remaining "QUAD" rows
