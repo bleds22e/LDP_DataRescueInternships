@@ -29,6 +29,8 @@ close(con)
 results_list <- lapply(results_list, str_trim, side = "both") %>% 
   lapply(., str_squish)
 
+results_list <- gsub(".01", " .01", results_list)
+
 # get the rows after the metadata and unlist them so each value gets read 
 # separately; otherwise, each row is one big long character string
 split_list <- lapply(results_list[7:length(results_list)], 
