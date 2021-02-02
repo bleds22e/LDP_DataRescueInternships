@@ -36,7 +36,7 @@ groundhog.library(janitor, "2021-01-01")
 ## this attempt using a txt file
 
 # open a connection to the file we want to read in
-con <- file('../../../Desktop/HONDO181.txt') 
+con <- file('UofA_plant_surveys/Vascular Plant Surveys/Stand 8/hondo881.aug.txt') 
 open(con)
 
 # make a list to put the results into
@@ -54,24 +54,31 @@ close(con)
 
 ### TURN INTO DATAFRAME ###
 
-# remove remaining white spaces
+# remove remaining white spaces and make everything uppercase
 results_list <- lapply(results_list, str_trim, side = "both") %>% 
-  lapply(., str_squish)
+  lapply(., str_squish) %>% 
+  lapply(., str_to_upper)
 
-# save first list as metadata to be attached later
-# are all the first rows metadata?
-metadata <- results_list[[1]]
-  
 # get the rows after the metadata and unlist them so each value gets read 
 # separately; otherwise, each row is one big long character string
-split_list <- lapply(results_list[3:length(results_list)], 
+split_list <- lapply(results_list[1:length(results_list)], 
                      str_split, 
                      pattern = " ")
  
 #### NOTE ####
 # when we code this for running through multiple files, we'll want a loop to run
 # through all the files to find the longest row and set max_length to that value
- 
+
+# find first "quad" row and cut out the rest
+quad_rows <- vector()
+for (i in 1:length(split_list)){
+  if (split_list[[i]][[1]][1] == 'QUAD') {
+    quad_rows <- c(quad_rows, i)
+  }
+}
+
+split_list <- split_list[min(quad_rows):length(split_list)]
+  
 # in order to bind the list together as rows, they need to be the same length.
 for (i in 1:length(split_list)){
     
@@ -91,7 +98,7 @@ for (i in 1:length(split_list)){
       split_list[[i]][[1]] <- c(split_list[[i]][[1]], add_NAs)
     }
 
-      # for lists that are empty, put the appropriate number of NAs in, based on the
+  # for lists that are empty, put the appropriate number of NAs in, based on the
   # length of the corrected "QUAD"  list  
   } else if (row_length <= 1) {
     split_list[[i]][[1]][1:max_length] <- NA
@@ -104,16 +111,22 @@ for (i in 1:length(split_list)){
 }
   
 # stitch lists together to act as rows in a dataframe
-data <- data.frame(matrix(unlist(split_list), 
+cover_df <- data.frame(matrix(unlist(split_list), 
                           nrow = length(split_list), 
                           byrow = T)) %>% 
   # remove the empty rows
   janitor::remove_empty("rows") %>% 
   # make the first row ("QUAD") into the column names
   janitor::row_to_names(., row_number = 1) %>% 
-  # remove any remaining "QUAD" rows
-  filter(QUAD != "QUAD")
+  # remove any remaining "QUAD" rows --- filter throws an error, for some reason
+  .[.$QUAD != 'QUAD',]
 
-# make a list to keep metadata together
-data_and_metadata <- list(data, metadata)
+# make tidy 
+# I think what is happening here is that the last 5 columns are repeats and would
+# create rows with example the same data?
+colnames(cover_df) <- make.unique(colnames(cover_df))
+cover_df_long <- rename(cover_df, "Species" = "QUAD") %>% 
+  pivot_longer(2:ncol(cover_df), names_to = "Quad")
+
+# add bits of file name info to df
 
