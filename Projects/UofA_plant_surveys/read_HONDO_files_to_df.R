@@ -11,9 +11,9 @@ source("UofA_plant_surveys/functions.R")
 
 ### FILES ###
 
-stands <- c("Stand 1", "Stand 3", "Stand 4 (maybe missing some)", 
-            "Stand 5", "Stand 6", "Stand 7", "Stand 8")
-list_names <- c("Stand_1", "Stand_3", "Stand_4", 
+stands <- c("Stand 1", "Stand 2 (missing some)", "Stand 3", 
+            "Stand 4 (maybe missing some)", "Stand 5", "Stand 6", "Stand 7", "Stand 8")
+list_names <- c("Stand_1", "Stand_2", "Stand_3", "Stand_4", 
                 "Stand_5", "Stand_6", "Stand_7", "Stand_8")
 df_list <- sapply(list_names, function(x) NULL)
 
@@ -63,12 +63,25 @@ for (s in 1:length(stands)) {
     rename("Temp_F" = "Cover") %>% 
     select(-Species)
   
+  # make species data wide
+  cover_data <- cover_data %>% 
+    select(Month, Year, Quad, Stand, Species, Cover) %>% 
+    pivot_wider(id_cols = c("Month", "Year", "Quad", "Species"),
+                names_from = Species, 
+                values_from = Cover, 
+                values_fill = NA)
+  
   # make list for export
   df_list[[s]] <- list(cover_data, temp_data)
   
 }
 
 
-
-
   
+### looking for duplicates 
+
+stand8_dups <- cover_data[which(duplicated(cover_data)),]
+
+cover_data2 <- anti_join(cover_data, stand7_dups) %>% 
+  distinct(Month, Year, Quad, Species)
+cover_data3 <- anti_join(cover_data, cover_data2)
