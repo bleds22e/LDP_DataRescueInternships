@@ -119,13 +119,18 @@ filename_to_metadata <- function(file_path){
            "year" = as.numeric(str_sub(hondo, start = -2)),
            "stand" = str_sub(hondo, start = -3, end = -3)) %>% 
     mutate("year" = as.character(if_else(year < 50, year + 2000, year +1900))) %>% 
-    mutate("month" = ifelse(month == 'APR', 4, 
-                            ifelse(month == 'MAY', 5,
-                                   ifelse(month == 'JUN', 6,
-                                          ifelse(month == 'JUL', 7,
-                                                 ifelse(month == 'AUG', 8,
-                                                        ifelse(month == 'SEP', 9, 
-                                                               ifelse(month == 'OCT', 10, NA)))))))) %>% 
+    mutate("month" = ifelse(month == 'JAN', 1, 
+                            ifelse(month == 'FEB', 2,
+                                   ifelse(month == 'MAR', 3,
+                                          ifelse(month == 'APR', 4, 
+                                                 ifelse(month == 'MAY', 5,
+                                                       ifelse(month == 'JUN', 6,
+                                                               ifelse(month == 'JUL', 7,
+                                                                     ifelse(month == 'AUG', 8,
+                                                                             ifelse(month == 'SEP', 9, 
+                                                                                   ifelse(month == 'OCT', 10, 
+                                                                                          ifelse(month == 'NOV', 11,
+                                                                                                 ifelse(month == 'DEC', 12, NA))))))))))))) %>% 
     select(-hondo)
   
   return(myfiles)
