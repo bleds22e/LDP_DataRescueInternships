@@ -51,22 +51,22 @@ for (s in 1:length(stands)) {
   }
   
   # make one big dataframe
-  long_data <- do.call(rbind, cleaned_list)
+  long_data <- do.call(rbind, cleaned_list) 
   
   # pull out temp data and put in it's own df
-  cover_data <- long_data %>% 
-    filter(Species != 'TEMP')
-  
   temp_data <- long_data %>% 
-    filter(Species == 'TEMP',
-           as.numeric(Cover) > 0) %>%
+    mutate(Cover = as.numeric(Cover)) %>% 
+    filter(Species == 'TEMP', Cover > 0) %>%
     rename("Temp_F" = "Cover") %>% 
     select(-Species)
   
   # make species data wide
+  cover_data <- long_data %>% 
+    filter(Species != 'TEMP')
+  
   cover_data <- cover_data %>% 
     select(Month, Year, Quad, Stand, Species, Cover) %>% 
-    pivot_wider(id_cols = c("Month", "Year", "Quad", "Species"),
+    pivot_wider(id_cols = c("Month", "Year", "Stand", "Quad", "Species"),
                 names_from = Species, 
                 values_from = Cover, 
                 values_fill = NA)
@@ -80,8 +80,29 @@ for (s in 1:length(stands)) {
   
 ### looking for duplicates 
 
-stand8_dups <- cover_data[which(duplicated(cover_data)),]
+# stand 8
+s = 8
 
-cover_data2 <- anti_join(cover_data, stand7_dups) %>% 
-  distinct(Month, Year, Quad, Species)
-cover_data3 <- anti_join(cover_data, cover_data2)
+cover_data8 <- cover_data %>% 
+  mutate(Cover = as.numeric(Cover)) %>% 
+  group_by(Year, Month, Species, Quad) %>% 
+  mutate(dups = n()>1) %>% 
+  filter(dups != TRUE) %>% 
+  select(-dups)
+stand8_dups <- cover_data %>% 
+  mutate(Cover = as.numeric(Cover)) %>% 
+  group_by(Stand, Year, Month, Species, Quad) %>% 
+  mutate(dups = n()>1) %>% 
+  filter(dups == TRUE) %>% 
+  summarise(Cover = sum(Cover)) %>% 
+  select(Species, Quad, Cover, Month, Year, Stand)
+cover_data8 <- bind_rows(cover_data8, stand8_dups)
+
+# stand 7
+s = 7
+
+stand7_dups <- cover_data %>% 
+  mutate(Cover = as.numeric(Cover)) %>% 
+  group_by(Stand, Year, Month, Species, Quad) %>% 
+  mutate(dups = n()>1) %>% 
+  filter(dups == TRUE)

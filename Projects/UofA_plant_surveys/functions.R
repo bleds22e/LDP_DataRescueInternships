@@ -58,7 +58,7 @@ txt_file_to_df <- function(results_list){
     # get length of row
     # 31 is assuming only 1 sub-stand in ever surveyed twice
     # if 31 is not the maximum length, we'll need to edit this code
-    max_length <- 31
+    max_length <- 36
     row_length <- length(split_list[[i]][[1]])
     
     # for lists that start with "QUAD," find length of "row" (actually a list)
@@ -94,8 +94,14 @@ txt_file_to_df <- function(results_list){
     # remove any remaining "QUAD" rows --- filter throws an error, for some reason
     .[.$QUAD != 'QUAD',]
   
-  # make tidy 
+  # make sure all columns have unique names
   colnames(cover_df) <- make.unique(colnames(cover_df))
+  
+  # if any columns are all NA, remove them
+  not_any_na <- function(x) all(!is.na(x))
+  cover_df <- cover_df %>% select(where(not_any_na))
+  
+  # make tidy 
   cover_df_long <- rename(cover_df, "Species" = "QUAD") %>% 
     pivot_longer(2:ncol(cover_df), names_to = "Quad") %>% 
     rename("Cover" = "value")
