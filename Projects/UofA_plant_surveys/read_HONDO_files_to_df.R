@@ -62,7 +62,35 @@ for (s in 1:length(stands)) {
   
   # make species data wide
   cover_data <- long_data %>% 
-    filter(Species != 'TEMP')
+    mutate(Cover = as.numeric(Cover)) %>% 
+    filter(Species != 'TEMP',
+           Species != 0.0,
+           Species != '0.0')
+  
+  # deal with any stand-specific issues causing duplicate rows
+  if (s %in% c(5, 8)) {
+    
+    # in stands 5 and 8, the data from Aug 2015 has at least one species row 
+    # repeated; the repeat row has cover values that are all 0 while the correct
+    # row has some values which are above 0
+    
+    # remove any row duplicated in the Year, Month, Species, and Quad columns
+    cover_data_clean <- cover_data %>% 
+      group_by(Year, Month, Species, Quad) %>% 
+      mutate(dups = n()>1) %>% 
+      filter(dups != TRUE) %>% 
+      select(-dups)
+    # sum the values of the duplicate rows (either 0+0 or 0+correct_value)
+    stand_dups <- cover_data %>% 
+      group_by(Stand, Year, Month, Species, Quad) %>% 
+      mutate(dups = n()>1) %>% 
+      filter(dups == TRUE) %>% 
+      summarise(Cover = sum(Cover)) %>% 
+      select(Species, Quad, Cover, Month, Year, Stand)
+    # bind the df without any duplicates and with summed duplicates together
+    cover_data <- bind_rows(cover_data_clean, stand_dups)
+    
+  } 
   
   cover_data <- cover_data %>% 
     select(Month, Year, Quad, Stand, Species, Cover) %>% 
@@ -76,33 +104,25 @@ for (s in 1:length(stands)) {
   
 }
 
-
+# give a descriptive name (stand plus cover/temp) to each df
+for (l in 1:length(df_list)){
   
-### looking for duplicates 
+  stand_names <- names(df_list)
+  stand <- stand_names[l]
+  names(df_list[[l]]) <- c(paste(stand, "Cover", sep = "_"),
+                        paste(stand, "Temp", sep = "_"))
+  
+}
 
-# stand 8
-s = 8
-
-cover_data8 <- cover_data %>% 
-  mutate(Cover = as.numeric(Cover)) %>% 
-  group_by(Year, Month, Species, Quad) %>% 
-  mutate(dups = n()>1) %>% 
-  filter(dups != TRUE) %>% 
-  select(-dups)
-stand8_dups <- cover_data %>% 
-  mutate(Cover = as.numeric(Cover)) %>% 
-  group_by(Stand, Year, Month, Species, Quad) %>% 
-  mutate(dups = n()>1) %>% 
-  filter(dups == TRUE) %>% 
-  summarise(Cover = sum(Cover)) %>% 
-  select(Species, Quad, Cover, Month, Year, Stand)
-cover_data8 <- bind_rows(cover_data8, stand8_dups)
-
-# stand 7
-s = 7
-
-stand7_dups <- cover_data %>% 
-  mutate(Cover = as.numeric(Cover)) %>% 
-  group_by(Stand, Year, Month, Species, Quad) %>% 
-  mutate(dups = n()>1) %>% 
-  filter(dups == TRUE)
+# write each df to a csv file with a descriptive name
+for (l in 1:length(df_list)) {
+  
+  stand <- df_list[[l]]
+  df_names <- names(stand)
+  
+  for (d in 1:length(stand)){
+    write_csv(stand[[d]],
+              paste("./UofA_plant_surveys/HONDO_stands/", df_names[d], ".csv", sep = ""))
+  }
+  
+}  
