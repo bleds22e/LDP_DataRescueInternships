@@ -1,9 +1,50 @@
 # FUNCTIONS #
 
+filename_to_metadata <- function(file_path){
+  
+  # fxn to read in HONDO file names and pull out metadata (stand, month, year)
+  myfiles <- as.data.frame(list.files(file_path, 
+                                      full.names = FALSE, 
+                                      pattern = "*.txt"))
+  colnames(myfiles) <- c("file_name")
+  
+  myfiles <- myfiles %>% 
+    # split the name into columns named hondo and month (aka HONDO189 and JUN)
+    separate(file_name, c("hondo", "month", NA)) %>% 
+    # make sure the month is capitalized
+    # make a new column called year, fill with last 2 characters from hondo col
+    # make a new column called stand, fill with character third from the end of hondo
+    mutate("month" = str_to_upper(month),
+           "year" = as.numeric(str_sub(hondo, start = -2)),
+           "stand" = str_sub(hondo, start = -3, end = -3)) %>% 
+    # for the year column, add 2000 if the value in the column created above is
+    # less than 50; add 1900 if it is greater than 50
+    mutate("year" = as.character(if_else(year < 50, year + 2000, year +1900))) %>% 
+    # change the 3 letter months to numbers
+    mutate("month" = ifelse(month == 'JAN', 1, 
+                            ifelse(month == 'FEB', 2,
+                                   ifelse(month == 'MAR', 3,
+                                          ifelse(month == 'APR', 4, 
+                                                 ifelse(month == 'MAY', 5,
+                                                        ifelse(month == 'JUN', 6,
+                                                               ifelse(month == 'JUL', 7,
+                                                                      ifelse(month == 'AUG', 8,
+                                                                             ifelse(month == 'SEP', 9, 
+                                                                                    ifelse(month == 'OCT', 10, 
+                                                                                           ifelse(month == 'NOV', 11,
+                                                                                                  ifelse(month == 'DEC', 12, NA))))))))))))) %>% 
+    # remove the hondo column (all data has been extracted from it)
+    select(-hondo)
+  
+  return(myfiles)
+  
+}
+
+
 read_in_txt_file <- function(file_path){
   
   ### READ IN FILE ###
-  ## this attempt using a txt file
+  ## once all files have been made into txt files
   
   # open a connection to the file we want to read in
   con <- file(file_path) 
@@ -42,44 +83,44 @@ txt_file_to_df <- function(results_list){
                        str_split, 
                        pattern = " ")
   
-  # find first "quad" row and cut out the rest
+  ## find first "quad" row and cut out the rest (remove metadata at top of file)
+  # empty vector
   quad_rows <- vector()
   for (i in 1:length(split_list)){
     if (split_list[[i]][[1]][1] == 'QUAD') {
+      #  add each row/list num that starts with 'QUAD' to the vector
       quad_rows <- c(quad_rows, i)
     }
   }
-  
+  # select only the rows/lists from the first 'QUAD' row through the end
+  # this removes all of the lines of metadata from the top of the file
   split_list <- split_list[min(quad_rows):length(split_list)]
   
-  # in order to bind the list together as rows, they need to be the same length.
+  ## in order to bind the list together as rows, they need to be the same length
   for (i in 1:length(split_list)){
     
-    # get length of row
-    # 31 is assuming only 1 sub-stand in ever surveyed twice
-    # if 31 is not the maximum length, we'll need to edit this code
+    # get length of row first row (a 'QUAD' row)
     max_length <- 36
     row_length <- length(split_list[[i]][[1]])
     
-    # for lists that start with "QUAD," find length of "row" (actually a list)
+    ## make each type of row the correct length
     if (row_length > 1){
       
       # this code adds NAs to the row to match max_length
       if (row_length < max_length) {
+        
+        # if the length of the row is less than the max length, make a vector
+        # of NAs needed to match the max length
         add_NAs <- vector(mode = "character", length = (max_length - row_length)) %>% 
           na_if("")
+        # append that vector of NAs to the row
         split_list[[i]][[1]] <- c(split_list[[i]][[1]], add_NAs)
       }
       
-      # for lists that are empty, put the appropriate number of NAs in, based on the
-      # length of the corrected "QUAD"  list  
+      # for lists that are empty, make a vector of NAs as long as max_length
     } else if (row_length <= 1) {
       split_list[[i]][[1]][1:max_length] <- NA
-      
-    } else {
-      print("ERROR: value greater than 31 possibly detected")
-      # ideally, would want to print which file once this is written for multiple
-    }
+    } 
     
   }
   
@@ -91,7 +132,7 @@ txt_file_to_df <- function(results_list){
     janitor::remove_empty("rows") %>% 
     # make the first row ("QUAD") into the column names
     janitor::row_to_names(., row_number = 1) %>% 
-    # remove any remaining "QUAD" rows --- filter throws an error, for some reason
+    # remove any remaining "QUAD" rows (filter throws an error, for some reason)
     .[.$QUAD != 'QUAD',]
   
   # make sure all columns have unique names
@@ -109,37 +150,3 @@ txt_file_to_df <- function(results_list){
   return(cover_df_long)
   
 }
-
-
-filename_to_metadata <- function(file_path){
-  
-  # fxn to read in HONDO file names and pull out metadata (stand, month, year)
-  myfiles <- as.data.frame(list.files(file_path, 
-                                      full.names = FALSE, 
-                                      pattern = "*.txt"))
-  colnames(myfiles) <- c("file_name")
-  
-  myfiles <- myfiles %>% 
-    separate(file_name, c("hondo", "month", NA)) %>% 
-    mutate("month" = str_to_upper(month),
-           "year" = as.numeric(str_sub(hondo, start = -2)),
-           "stand" = str_sub(hondo, start = -3, end = -3)) %>% 
-    mutate("year" = as.character(if_else(year < 50, year + 2000, year +1900))) %>% 
-    mutate("month" = ifelse(month == 'JAN', 1, 
-                            ifelse(month == 'FEB', 2,
-                                   ifelse(month == 'MAR', 3,
-                                          ifelse(month == 'APR', 4, 
-                                                 ifelse(month == 'MAY', 5,
-                                                       ifelse(month == 'JUN', 6,
-                                                               ifelse(month == 'JUL', 7,
-                                                                     ifelse(month == 'AUG', 8,
-                                                                             ifelse(month == 'SEP', 9, 
-                                                                                   ifelse(month == 'OCT', 10, 
-                                                                                          ifelse(month == 'NOV', 11,
-                                                                                                 ifelse(month == 'DEC', 12, NA))))))))))))) %>% 
-    select(-hondo)
-  
-  return(myfiles)
-  
-}
-  
